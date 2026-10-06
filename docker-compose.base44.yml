@@ -1,0 +1,104 @@
+# Base44 development stack for Maybe (Rails 7 + Postgres + Redis + Sidekiq).
+# Source is bind-mounted; Rails reloads code per request, Tailwind watches CSS.
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: .base44/Dockerfile
+  volumes:
+    - .:/workspace
+    - bundle:/bundle
+  env_file:
+    - /run/base44/app.env
+  environment: &app_env
+    RAILS_ENV: development
+    DB_HOST: db
+    DB_PORT: "5432"
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    REDIS_URL: redis://redis:6379/1
+    SELF_HOSTED: "true"
+
+services:
+  db:
+    image: postgres:16
+    restart: on-failure
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: on-failure
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: install gems, prepare DB, build CSS, load demo data on first run.
+  setup:
+    <<: *app
+    command:
+      - sh
+      - -ec
+      - |
+        bundle install
+        bin/rails db:prepare
+        bin/rails tailwindcss:build
+        bin/rails runner 'exit(User.exists? ? 0 : 1)' || bin/rails demo_data:default
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    restart: on-failure
+    ports:
+      - "3000:3000"
+    command:
+      - sh
+      - -ec
+      - |
+        rm -f tmp/pids/server.pid
+        bin/rails "tailwindcss:watch[always]" &
+        exec bin/rails server -b 0.0.0.0 -p 3000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:3000/up || (echo 'rails web not responding'; exit 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *app
+    restart: on-failure
+    command: ["bundle", "exec", "sidekiq"]
+    healthcheck:
+      test: ["CMD-SHELL", "bundle exec ruby -rsidekiq/api -e 'exit(Sidekiq::ProcessSet.new.size > 0 ? 0 : 1)' || (echo 'sidekiq heartbeat missing'; exit 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+volumes:
+  bundle:
+  postgres-data:
+  redis-data:

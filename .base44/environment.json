@@ -1,0 +1,11 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/up",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    { "name": "SYNTH_API_KEY", "description": "Optional. Synth Finance API key for exchange rates and stock prices (https://synthfinance.com/).", "requiredAtBoot": false },
+    { "name": "OPENAI_ACCESS_TOKEN", "description": "Optional. OpenAI API key for AI chat and rules features (https://platform.openai.com/api-keys).", "requiredAtBoot": false },
+    { "name": "PLAID_CLIENT_ID", "description": "Optional. Plaid client id for bank syncing (https://dashboard.plaid.com/developers/keys).", "requiredAtBoot": false },
+    { "name": "PLAID_SECRET", "description": "Optional. Plaid secret for bank syncing (https://dashboard.plaid.com/developers/keys).", "requiredAtBoot": false }
+  ]
+}
