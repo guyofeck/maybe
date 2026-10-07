@@ -1,0 +1,30 @@
+<%# locals: (current_spending:, previous_spending:, percentage_change:) %>
+
+<section id="spending-comparison" aria-labelledby="spending-comparison-title" class="bg-container p-4 rounded-xl shadow-border-xs">
+  <h2 id="spending-comparison-title" class="text-lg font-medium text-primary">Monthly spending</h2>
+  <p class="text-sm text-secondary mt-1">Month to date compared with last month's total</p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+    <div class="space-y-1">
+      <p class="text-sm text-secondary">This month</p>
+      <p class="text-3xl font-medium text-primary" data-current-spending><%= format_money(current_spending) %></p>
+    </div>
+    <div class="space-y-1">
+      <p class="text-sm text-secondary">Last month</p>
+      <p class="text-3xl font-medium text-primary" data-previous-spending><%= format_money(previous_spending) %></p>
+    </div>
+  </div>
+
+  <p class="text-sm mt-4" data-spending-change>
+    <% if percentage_change.nil? %>
+      <span class="text-secondary">Percentage change unavailable — no spending last month</span>
+    <% elsif percentage_change.zero? %>
+      <span class="text-secondary">0.0% change vs. last month</span>
+    <% else %>
+      <span class="<%= percentage_change.positive? ? "text-red-500" : "text-green-500" %>">
+        <%= number_to_percentage(percentage_change.abs, precision: 1) %> <%= percentage_change.positive? ? "more" : "less" %> spending
+      </span>
+      <span class="text-secondary">vs. last month</span>
+    <% end %>
+  </p>
+</section>
