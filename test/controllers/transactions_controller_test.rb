@@ -8,6 +8,71 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     @entry = entries(:transaction)
   end
 
+  test "downloads all filtered transactions without changing stored pagination" do
+    family = families(:empty)
+    sign_in users(:empty)
+    account = family.accounts.create! name: "Test", balance: 0, currency: "USD", accountable: Depository.new
+    category = family.categories.create! name: "Food", color: "#ff0000"
+    matching = 3.times.map do |i|
+      create_transaction(account: account, name: "CSV match #{i}", category: category, date: Date.current - i.days)
+    end
+    create_transaction(account: account, name: "Not a match", category: category)
+    create_transaction(name: "CSV match other family", category: categories(:food_and_drink))
+
+    get transactions_url(q: { search: "CSV match", categories: [ "Food" ] }, per_page: 1, page: 2)
+    assert_response :success
+    assert_dom "a", text: "Download CSV"
+    session = Session.where(user: users(:empty)).order(:created_at).last
+    stored_params = session.prev_transaction_page_params
+
+    get transactions_url(format: :csv, q: { search: "CSV match", categories: [ "Food" ] }, per_page: 1, page: 2)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    assert_includes response.headers["Content-Disposition"], "attachment"
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal matching.map(&:name), rows.map { |row| row["Name"] }
+    assert_equal [ "-100.0" ] * 3, rows.map { |row| row["Amount"] }
+    assert_equal stored_params, session.reload.prev_transaction_page_params
+  end
+
+  test "downloads an empty CSV with headers and ignores saved filters" do
+    get transactions_url(q: { search: "No transactions match this" })
+    get transactions_url(format: :csv, q: { search: "No transactions match this" })
+    assert_response :success
+    assert_empty CSV.parse(response.body, headers: true)
+    assert_equal "Date,Name,Account,Category,Merchant,Tags,Amount,Currency,Notes", response.body.lines.first.strip
+
+    get transactions_url(format: :csv)
+    assert_response :success
+    assert_not_empty CSV.parse(response.body, headers: true)
+  end
+
+  test "CSV escapes text and exports each transaction once for multiple matching tags" do
+    family = families(:empty)
+    sign_in users(:empty)
+    account = family.accounts.create! name: "Test", balance: 0, currency: "USD", accountable: Depository.new
+    tags = [ "First", "Second" ].map { |name| family.tags.create!(name: name) }
+    entry = create_transaction(account: account, name: '=HYPERLINK("example")', notes: "Quoted, \"text\"\nSecond line", tags: tags)
+
+    get transactions_url(format: :csv, q: { tags: tags.map(&:name) })
+
+    assert_response :success
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal 1, rows.size
+    assert_equal "'#{entry.name}", rows.first["Name"]
+    assert_equal entry.notes, rows.first["Notes"]
+    assert_equal tags.map(&:name).sort, rows.first["Tags"].split(", ").sort
+    assert_equal "", rows.first["Category"]
+    assert_equal "", rows.first["Merchant"]
+  end
+
+  test "CSV download requires authentication" do
+    delete session_url(Session.where(user: @user).order(:created_at).last)
+    get transactions_url(format: :csv)
+    assert_redirected_to new_session_url
+  end
+
   test "creates with transaction details" do
     assert_difference [ "Entry.count", "Transaction.count" ], 1 do
       post transactions_url, params: {

@@ -1,5 +1,5 @@
 <div class="space-y-4 pb-20 flex flex-col">
-  <header class="flex justify-between items-center text-primary font-medium">
+  <header class="flex flex-wrap gap-3 justify-between items-center text-primary font-medium">
     <h1 class="text-xl">Transactions</h1>
     <div class="flex items-center gap-5">
       <div class="flex items-center gap-2">
@@ -12,6 +12,14 @@
           <% menu.with_item(variant: "link", text: "Edit imports", href: imports_path, icon: "hard-drive-upload", data: { turbo_frame: :_top }) %>
           <% menu.with_item(variant: "link", text: "Import", href: new_import_path, icon: "download", data: { turbo_frame: "modal", class_name: "md:!hidden" }) %>
         <% end %>
+
+        <%= render DS::Link.new(
+          text: "Download CSV",
+          icon: "download",
+          variant: "outline",
+          href: transactions_path(format: :csv, q: @q),
+          data: { turbo: false }
+        ) %>
 
         <div class="hidden md:flex">
           <%= render DS::Link.new(

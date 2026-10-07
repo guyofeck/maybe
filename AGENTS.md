@@ -8,3 +8,4 @@
 - Health: `GET /up` (Rails health check). `/` redirects to `/sessions/new` when logged out.
 - All external integrations (Synth, OpenAI, Plaid) are optional; nothing is required to boot.
 - Tests: `docker compose -f docker-compose.base44.yml exec web bin/rails test` (uses `maybe_test` DB on the same Postgres).
+- Transactions CSV uses the same family-scoped search as the list but exports every matching row, ignoring pagination. CSV requests deliberately do not restore or overwrite saved page filters. Exported amounts use the display sign (income positive, expense negative), opposite the stored entry amount. Focused checks: `docker compose -f docker-compose.base44.yml exec -T web bin/rails test test/controllers/transactions_controller_test.rb`.
