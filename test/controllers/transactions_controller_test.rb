@@ -8,6 +8,68 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     @entry = entries(:transaction)
   end
 
+  test "downloads all filtered transactions without pagination or changing saved filters" do
+    get transactions_url(q: { search: "Starbucks" }, per_page: 1)
+    assert_dom "a[href='#{transactions_path(format: :csv, q: { search: "Starbucks" })}'][data-turbo='false']", text: "Download CSV"
+    saved_params = @user.sessions.order(:created_at).last.prev_transaction_page_params
+
+    second_entry = create_transaction(account: @entry.account, name: "Starbucks, coffee", notes: "Line one\nLine two")
+    other_account = families(:empty).accounts.create! name: "Other family", balance: 0, currency: "USD", accountable: Depository.new
+    create_transaction(account: other_account, name: "Starbucks other family")
+
+    get transactions_url(format: :csv, q: { search: "Starbucks" }, page: 2, per_page: 1)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    assert_includes response.headers["Content-Disposition"], "attachment"
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal 2, rows.size
+    assert_equal [ second_entry.name, @entry.name ], rows.map { |row| row["Name"] }
+    assert_equal second_entry.notes, rows.first["Notes"]
+    assert_equal @entry.amount.to_s("F"), rows[rows.size - 1]["Amount"]
+    assert_equal saved_params, @user.sessions.order(:created_at).last.prev_transaction_page_params
+  end
+
+  test "empty CSV download contains headers and does not restore saved filters" do
+    get transactions_url(q: { search: "Starbucks" })
+    get transactions_url(format: :csv, q: { search: "No matching transaction" })
+
+    assert_response :success
+    rows = CSV.parse(response.body, headers: true)
+    assert_empty rows
+    assert_equal "Date", rows.headers.first
+
+    get transactions_url(format: :csv)
+    assert_response :success
+    assert_equal @user.family.transactions.count, CSV.parse(response.body, headers: true).size
+  end
+
+  test "CSV download applies account category date and tag filters without duplicate rows" do
+    matching = create_transaction(account: @entry.account, name: "Filtered transaction", date: Date.current,
+      category: categories(:food_and_drink), tags: [ tags(:one), tags(:two) ])
+    create_transaction(account: @entry.account, name: "Outside date range", date: 1.year.ago.to_date,
+      category: categories(:food_and_drink), tags: [ tags(:one) ])
+    create_transaction(account: @entry.account, name: "Wrong category", date: Date.current, tags: [ tags(:one) ])
+
+    get transactions_url(format: :csv, q: {
+      account_ids: [ @entry.account_id ], categories: [ "Food & Drink" ],
+      start_date: Date.current.iso8601, end_date: Date.current.iso8601,
+      tags: [ "Trips", "Emergency fund" ]
+    })
+
+    assert_response :success
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal [ matching.name ], rows.map { |row| row["Name"] }
+    assert_equal "Emergency fund, Trips", rows.first["Tags"]
+  end
+
+  test "CSV download escapes spreadsheet formulas in text fields" do
+    @entry.update!(name: "=1+1")
+    get transactions_url(format: :csv, q: { search: "=1+1" })
+
+    assert_equal "'=1+1", CSV.parse(response.body, headers: true).first["Name"]
+  end
+
   test "creates with transaction details" do
     assert_difference [ "Entry.count", "Transaction.count" ], 1 do
       post transactions_url, params: {

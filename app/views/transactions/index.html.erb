@@ -13,6 +13,14 @@
           <% menu.with_item(variant: "link", text: "Import", href: new_import_path, icon: "download", data: { turbo_frame: "modal", class_name: "md:!hidden" }) %>
         <% end %>
 
+        <%= render DS::Link.new(
+          text: "Download CSV",
+          icon: "download",
+          variant: "outline",
+          href: transactions_path(format: :csv, q: @q),
+          data: { turbo: false }
+        ) %>
+
         <div class="hidden md:flex">
           <%= render DS::Link.new(
             text: t(".import"),

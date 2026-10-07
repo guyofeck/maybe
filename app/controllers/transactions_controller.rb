@@ -1,7 +1,7 @@
 class TransactionsController < ApplicationController
   include EntryableResource
 
-  before_action :store_params!, only: :index
+  before_action :store_params!, only: :index, unless: -> { request.format.csv? }
 
   def new
     super
@@ -21,7 +21,15 @@ class TransactionsController < ApplicationController
                          :transfer_as_inflow, :transfer_as_outflow
                        )
 
-    @pagy, @transactions = pagy(base_scope, limit: per_page)
+    respond_to do |format|
+      format.html { @pagy, @transactions = pagy(base_scope, limit: per_page) }
+      format.csv do
+        send_data Transaction::CsvExport.new(base_scope).generate,
+          filename: "transactions-#{Date.current.iso8601}.csv",
+          type: "text/csv; charset=utf-8",
+          disposition: "attachment"
+      end
+    end
   end
 
   def clear_filter
