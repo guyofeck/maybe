@@ -1,0 +1,25 @@
+<%# locals: (trend:) %>
+
+<section id="monthly-spending" aria-labelledby="monthly-spending-title" class="bg-container p-4 rounded-xl shadow-border-xs">
+  <h2 id="monthly-spending-title" class="text-sm text-secondary font-medium"><%= t(".title") %></h2>
+  <div class="mt-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div class="space-y-1">
+      <p class="text-sm text-secondary"><%= t(".this_month") %></p>
+      <p data-testid="current-month-spending" class="text-3xl font-medium text-primary"><%= format_money(trend.current) %></p>
+      <p class="text-xs text-secondary"><%= t(".month_to_date") %></p>
+    </div>
+    <div class="space-y-1">
+      <p class="text-sm text-secondary"><%= t(".last_month") %></p>
+      <p data-testid="previous-month-spending" class="text-xl font-medium text-primary"><%= format_money(trend.previous) %></p>
+      <% if trend.previous.zero? && !trend.current.zero? %>
+        <p data-testid="spending-change" class="text-sm text-secondary"><%= t(".no_previous_spending") %></p>
+      <% else %>
+        <p data-testid="spending-change" class="text-sm" style="color: <%= trend.color %>">
+          <%= icon trend.icon, size: "sm", color: "current", class: "inline mb-0.5" %>
+          <span class="font-mono"><%= trend.percent_formatted %></span>
+          <span class="text-secondary"><%= t(".comparison") %></span>
+        </p>
+      <% end %>
+    </div>
+  </div>
+</section>

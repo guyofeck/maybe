@@ -4,6 +4,13 @@ en:
     changelog:
       title: What's new
     dashboard:
+      monthly_spending:
+        title: Monthly spending
+        this_month: This month
+        last_month: Last month
+        month_to_date: Month to date
+        comparison: vs. last month
+        no_previous_spending: Percentage unavailable — no spending last month
       net_worth_chart:
         data_not_available: Data not available for the selected period
         title: Net Worth

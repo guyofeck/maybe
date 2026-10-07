@@ -24,6 +24,18 @@ class PagesController < ApplicationController
 
     @cashflow_sankey_data = build_cashflow_sankey_data(income_totals, expense_totals, family_currency)
 
+    today = Date.current
+    last_month = today.prev_month
+    previous_month_period = Period.custom(start_date: last_month.beginning_of_month, end_date: last_month.end_of_month)
+    current_spending = Current.family.income_statement.expense_totals(period: Period.current_month).total
+    previous_spending = Current.family.income_statement.expense_totals(period: previous_month_period).total
+
+    @monthly_spending = Trend.new(
+      current: Money.new(current_spending, family_currency),
+      previous: Money.new(previous_spending, family_currency),
+      favorable_direction: "down"
+    )
+
     @breadcrumbs = [ [ "Home", root_path ], [ "Dashboard", nil ] ]
   end
 
