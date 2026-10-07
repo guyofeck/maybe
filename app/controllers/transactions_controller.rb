@@ -1,7 +1,7 @@
 class TransactionsController < ApplicationController
   include EntryableResource
 
-  before_action :store_params!, only: :index
+  before_action :store_params!, only: :index, if: -> { request.format.html? }
 
   def new
     super
@@ -21,7 +21,18 @@ class TransactionsController < ApplicationController
                          :transfer_as_inflow, :transfer_as_outflow
                        )
 
-    @pagy, @transactions = pagy(base_scope, limit: per_page)
+    respond_to do |format|
+      format.html { @pagy, @transactions = pagy(base_scope, limit: per_page) }
+      format.csv do
+        transactions = Transaction.where(id: @search.transactions_scope.select(:id))
+                                  .reverse_chronological
+                                  .includes(:category, :tags, entry: :account)
+        send_data Transaction::CsvExporter.new(transactions).generate,
+          filename: "transactions-#{Date.current.iso8601}.csv",
+          type: "text/csv",
+          disposition: "attachment"
+      end
+    end
   end
 
   def clear_filter
