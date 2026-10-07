@@ -39,6 +39,13 @@
 <% end %>
 
 <div class="w-full space-y-6 pb-24">
+  <%= render "pages/dashboard/monthly_spending",
+        current_total: @monthly_spending,
+        previous_total: @previous_month_spending,
+        change: @spending_change,
+        current_period: @spending_period,
+        previous_period: @previous_spending_period %>
+
   <% if Current.family.accounts.any? %>
     <section class="bg-container py-4 rounded-xl shadow-border-xs">
       <%= render partial: "pages/dashboard/net_worth_chart", locals: {

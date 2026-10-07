@@ -18,6 +18,18 @@ class PagesController < ApplicationController
       Period.last_30_days
     end
 
+    current_month = Period.current_month
+    previous_month = current_month.start_date.prev_month
+    @spending_period = current_month
+    @previous_spending_period = Period.custom(start_date: previous_month, end_date: previous_month.end_of_month)
+    @monthly_spending = Current.family.income_statement.expense_totals(period: @spending_period).total
+    @previous_month_spending = Current.family.income_statement.expense_totals(period: @previous_spending_period).total
+    @spending_change = if @previous_month_spending.zero?
+      @monthly_spending.zero? ? 0 : nil
+    else
+      (@monthly_spending - @previous_month_spending) / @previous_month_spending.to_d * 100
+    end
+
     family_currency = Current.family.currency
     income_totals = Current.family.income_statement.income_totals(period: @cashflow_period)
     expense_totals = Current.family.income_statement.expense_totals(period: @cashflow_period)
