@@ -1,6 +1,7 @@
 require "test_helper"
 
 class PagesControllerTest < ActionDispatch::IntegrationTest
+  include EntriesTestHelper
   setup do
     sign_in @user = users(:family_admin)
   end
@@ -8,6 +9,44 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
   test "dashboard" do
     get root_path
     assert_response :ok
+  end
+
+  test "monthly spending compares calendar months across year boundaries" do
+    travel_to Time.zone.local(2026, 1, 15) do
+      Entry.where(account: @user.family.accounts).destroy_all
+      create_transaction(amount: 100, date: Date.new(2025, 12, 1))
+      create_transaction(amount: 100, date: Date.new(2025, 12, 31))
+      create_transaction(amount: 300, date: Date.new(2026, 1, 1))
+      create_transaction(amount: 999, date: Date.new(2025, 11, 30))
+      create_transaction(amount: 999, date: Date.new(2026, 1, 16))
+      create_transaction(amount: -500, date: Date.current)
+      create_transaction(amount: 500, kind: "funds_movement", date: Date.current)
+
+      get root_path
+      assert_response :ok
+      assert_select "#monthly-spending dd", text: "$300.00"
+      assert_select "#monthly-spending dd", text: "$200.00"
+      assert_select "#monthly-spending p", text: /50.0% increase vs. last month/
+    end
+  end
+
+  test "monthly spending shows a decrease" do
+    Entry.where(account: @user.family.accounts).destroy_all
+    create_transaction(amount: 200, date: Date.current.prev_month.beginning_of_month)
+    create_transaction(amount: 100)
+
+    get root_path
+    assert_select "#monthly-spending p", text: /50.0% decrease vs. last month/
+  end
+
+  test "monthly spending handles no previous spending" do
+    Entry.where(account: @user.family.accounts).destroy_all
+    get root_path
+    assert_select "#monthly-spending p", text: /0.0% change vs. last month/
+
+    create_transaction(amount: 100)
+    get root_path
+    assert_select "#monthly-spending p", text: "Percentage change unavailable — no spending last month"
   end
 
   test "changelog" do

@@ -1,0 +1,28 @@
+<%# locals: (monthly_spending:, last_month_spending:, spending_change:) %>
+
+<section id="monthly-spending" aria-labelledby="monthly-spending-title" class="bg-container rounded-xl shadow-border-xs p-4 space-y-4">
+  <h2 id="monthly-spending-title" class="text-lg font-medium text-primary">Monthly spending</h2>
+
+  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <dl class="flex flex-wrap gap-6">
+      <div class="space-y-1">
+        <dt class="text-sm text-secondary">This month so far</dt>
+        <dd class="text-2xl font-medium text-primary"><%= format_money(monthly_spending) %></dd>
+      </div>
+      <div class="space-y-1">
+        <dt class="text-sm text-secondary">Last month</dt>
+        <dd class="text-2xl font-medium text-secondary"><%= format_money(last_month_spending) %></dd>
+      </div>
+    </dl>
+
+    <% if spending_change.nil? %>
+      <p class="text-sm text-secondary">Percentage change unavailable — no spending last month</p>
+    <% else %>
+      <p class="text-sm font-medium <%= spending_change.positive? ? 'text-destructive' : spending_change.negative? ? 'text-success' : 'text-secondary' %>">
+        <%= number_to_percentage(spending_change.abs, precision: 1) %>
+        <%= spending_change.positive? ? "increase" : spending_change.negative? ? "decrease" : "change" %> vs. last month
+      </p>
+    <% end %>
+  </div>
+  <p class="text-xs text-secondary">Month-to-date compared with the full previous calendar month.</p>
+</section>
