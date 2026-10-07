@@ -1,7 +1,7 @@
 class TransactionsController < ApplicationController
   include EntryableResource
 
-  before_action :store_params!, only: :index
+  before_action :store_params!, only: :index, unless: -> { request.format.csv? }
 
   def new
     super
@@ -12,6 +12,18 @@ class TransactionsController < ApplicationController
   def index
     @q = search_params
     @search = Transaction::Search.new(Current.family, filters: @q)
+
+    if request.format.csv?
+      transactions = Transaction.where(id: @search.transactions_scope.select(:id))
+                                .reverse_chronological
+                                .includes(:category, :tags, entry: :account)
+
+      send_data Transaction::CsvExporter.new(transactions).generate,
+                filename: "transactions-#{Date.current.iso8601}.csv",
+                type: "text/csv; charset=utf-8",
+                disposition: "attachment"
+      return
+    end
 
     base_scope = @search.transactions_scope
                        .reverse_chronological
